@@ -1,21 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 
 export function usePythonState(propName) {
-  const [propValue, setPropValue] = useState()
+  const [propValue, setPropValue] = useState();
 
   useEffect(() => {
-    window.addEventListener('pywebviewready', function() {
+    window.addEventListener("pywebviewready", function () {
       if (!window.pywebview.state) {
-        window.pywebview.state = {}
+        window.pywebview.state = {};
       }
-      window.pywebview.state[`set_${propName}`] = setPropValue
-    })
-  }, [])
+      window.pywebview.state[`set_${propName}`] = setPropValue;
+    });
+  }, []);
 
-  return propValue
+  return propValue;
 }
 
 export function usePythonApi(apiName, apiContent) {
-  window.pywebview.api = window.pywebview.api || {}
-  window.pywebview.api[apiName](apiContent)
+  window.pywebview.api = window.pywebview.api || {};
+
+  if (apiContent) {
+    return window.pywebview.api[apiName](apiContent);
+  } else {
+    return window.pywebview.api[apiName];
+  }
 }
