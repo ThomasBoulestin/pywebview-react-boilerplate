@@ -1,8 +1,9 @@
-body {
-  margin: 0;
-  padding: 0;
-  font-size: 14pt;
-  line-height: 130%;
-  color: #e0e0e0;
-  background-color: #424242;
-}
+
+
+/* html {
+    --bs-body-bg: #424242 !important;
+  } */
+
+  html {
+    font-size: smaller;
+  }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import {
   FullFileBrowser,
@@ -17,9 +17,9 @@ import {
   FileNavbar,
   FileToolbar,
 } from "chonky";
-import { tst_files } from "./demo.fs_map";
-
 import { usePythonApi, usePythonState } from "../../hooks/pythonBridge";
+import { GeneralContext } from "../GeneralContext/GeneralContext";
+import { ToastContext } from "../ToastContext/ToastContext";
 
 setChonkyDefaults({
   iconComponent: ChonkyIconFA,
@@ -38,32 +38,79 @@ const SortFilesBySize = defineFileAction({
   },
 });
 
-const fileActions = [SortFilesBySize];
+const switchASC = defineFileAction({
+  id: "switch_asc",
+  //   hotkeys: ["ctrl+o"],
+  button: {
+    name: "Switch ASC",
+    toolbar: false,
+    contextMenu: true,
+    // icon: ChonkyIconFA.flash,
+  },
+});
+
+const switchAXI = defineFileAction({
+  id: "switch_axi",
+  //   hotkeys: ["ctrl+o"],
+  button: {
+    name: "Switch AXI",
+    toolbar: false,
+    contextMenu: true,
+    // icon: ChonkyIconFA.flash,
+  },
+});
 
 export default function FileExplorer() {
+  const { addToast } = useContext(ToastContext);
+
+  const { current_path, current_name, root_path, dispatch } =
+    useContext(GeneralContext);
+
   const [currentFolderId, setCurrentFolderId] = useState("root");
   const [currentFileMap, setCurrentFileMap] = useState({
     root: {
       id: "root",
-      name: "Please select directory to load",
+      name: "fsdfsd",
       isDir: true,
       childrenIds: [],
       contentLoaded: true,
+      path: "DummyPath/lol/sdfdsf/qsdqsd",
     },
   });
 
   const files = useFiles(currentFileMap, currentFolderId);
   const folderChain = useFolderChain(currentFileMap, currentFolderId);
 
-  const init_handler = () => {
-    pywebview.api.start_tree_load("Z:/").then((res) => {
-      let res_obj = JSON.parse(res);
-      console.log(res_obj);
+  useEffect(() => {
+    console.log(currentFileMap[currentFolderId].path);
 
-      setCurrentFolderId(res_obj.rootFolderId);
-      setCurrentFileMap(res_obj.fileMap);
+    dispatch({
+      type: "set_current_path",
+      value: currentFileMap[currentFolderId].path,
     });
-  };
+
+    dispatch({
+      type: "set_current_name",
+      value: currentFileMap[currentFolderId].name,
+    });
+  }, [currentFolderId]);
+
+  //   When the root path is changed --> reload the explorer
+  useEffect(() => {
+    try {
+      pywebview.api.start_tree_load(root_path).then((res) => {
+        let res_obj = JSON.parse(res);
+        console.log(res_obj);
+
+        setCurrentFolderId(res_obj.rootFolderId);
+        setCurrentFileMap(res_obj.fileMap);
+
+        addToast("success", "Success", "Path loaded");
+      });
+    } catch (error) {
+      addToast("danger", "Error", "No python API available");
+    }
+  }, [root_path]);
 
   const load_path_handler = (targetFile) => {
     pywebview.api.load_path(targetFile.path, targetFile.id).then((res) => {
@@ -88,6 +135,52 @@ export default function FileExplorer() {
     });
   };
 
+  const switch_asc_handler = (selectedFiles) => {
+    try {
+      pywebview.api.switch_asc(selectedFiles).then((res) => {
+        let res_list = JSON.parse(res);
+        console.log(res_list);
+
+        var newFileMap = {
+          ...currentFileMap,
+        };
+
+        res_list.forEach((element) => {
+          newFileMap[element.id] = element;
+        });
+
+        setCurrentFileMap(newFileMap);
+
+        addToast("success", "Success", "Switched");
+      });
+    } catch (error) {
+      addToast("danger", "Error", "");
+    }
+  };
+
+  const switch_axi_handler = (selectedFiles) => {
+    try {
+      pywebview.api.switch_axi(selectedFiles).then((res) => {
+        let res_list = JSON.parse(res);
+        console.log(res_list);
+
+        var newFileMap = {
+          ...currentFileMap,
+        };
+
+        res_list.forEach((element) => {
+          newFileMap[element.id] = element;
+        });
+
+        setCurrentFileMap(newFileMap);
+
+        addToast("success", "Success", "Switched");
+      });
+    } catch (error) {
+      addToast("danger", "Error", "");
+    }
+  };
+
   const handleFileAction = (data) => {
     if (data.id == "open_files") {
       if (
@@ -106,23 +199,25 @@ export default function FileExplorer() {
         // loadContent(data.payload.targetFile.id);
       }
     }
+
+    if (data.id == "switch_asc") {
+      switch_asc_handler(data.state.selectedFiles);
+    }
+
+    if (data.id == "switch_axi") {
+      switch_axi_handler(data.state.selectedFiles);
+    }
   };
 
   return (
     <div>
-      <button
-        onClick={() => {
-          init_handler();
-        }}
-      >
-        heyy
-      </button>
-      current folder size = {currentFileMap[currentFolderId].size}
-      <div id="file-explorer" style={{ height: 900, width: 900 }}>
+      {/* <div>current folder size = {currentFileMap[currentFolderId].size}</div> */}
+
+      <div id="file-explorer" style={{ height: 900, width: 750 }}>
         <FileBrowser
           files={files}
           folderChain={folderChain}
-          fileActions={fileActions}
+          fileActions={[SortFilesBySize, switchASC, switchAXI]}
           onFileAction={handleFileAction}
           // disableDefaultFileActions={true}
           defaultFileViewActionId={ChonkyActions.EnableListView.id}
@@ -167,12 +262,3 @@ export const useFolderChain = (fileMap, currentFolderId) => {
     return folderChain;
   }, [currentFolderId, fileMap]);
 };
-
-function uuidv4() {
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
-    (
-      +c ^
-      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))
-    ).toString(16)
-  );
-}
